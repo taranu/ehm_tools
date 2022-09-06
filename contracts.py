@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import *
@@ -27,14 +28,20 @@ salary_max_league = 9000000
 years_max_league = 7
 
 
-def get_elc(player: plyr.Player, year_draft_max=None, check_contract=True):
+def get_elc(player: plyr.Player, year_draft_max=None, check_contract=True, default_undrafted=False):
     if not player.draft_overall > 0:
+        if default_undrafted:
+            return Contract(salary=salary_min_league, years=1)
         raise ValueError(f"Can't get ELC for undrafted player: {player} with draft_overall={player.draft_overall}")
     elif check_contract and not (player.years == 0 or (player.years == 1 and player.salary == salary_unsigned)):
         raise ValueError(f"Player: {player} contract: {player.salary} x {player.years}Y not consistent with drafted,"
                          f" unsigned prospect")
-    if year_draft_max is not None and (player.draft_year > year_draft_max):
-        raise ValueError(f"Player: {player} draft year: {player.draft_year} > year_draft_max={year_draft_max}")
+    if year_draft_max is not None and (
+        player.is_booster
+        and player.is_just_drafted(year_draft_max + 1)
+    ):
+        raise ValueError(f"Player: {player} is_booster and is_just_drafted from draft year={player.draft_year} "
+                         f"> year_draft_max={year_draft_max}")
     if player.draft_year >= 2020:
         if player.draft_overall <= 14:
             salary = draft_slots_2020[player.draft_overall]
@@ -132,6 +139,9 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
     warnings = []
     results = []
     resignings = {}
+    if salaries_min is None:
+        logging.warning("salaries_min not provided; will default to league minimum")
+        salaries_min = {}
     for name_full, contract in contracts.items():
         try:
             pid = players.find_player_by_fullname(name_full)
@@ -140,7 +150,7 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
                 salary, years = player.salary, player.years
                 player.salary, player.years = salary_unsigned, 0
             is_free = contract is not None and contract.team is not None
-            elc = get_elc(player, year_draft_max=year_draft_max) if not is_free else None
+            elc = get_elc(player, year_draft_max=year_draft_max, default_undrafted=True) if not is_free else None
             if contract is None:
                 contract = elc
                 player.team = player.rights
@@ -148,14 +158,11 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
             else:
                 player.salary, player.years = salary, years
                 if is_free:
-                    if not (player.years == 0):
+                    if not (years == 0):
                         raise ValueError(f"Player {player.name_last}, {player.name_first} can't be signed as"
                                          f" free agent with years={player.years} > 0")
                     player.team = contract.team
                 else:
-                    # Contract extensions only happen in offseason before rollover
-                    # Need to add an extra year since all contracts will lose one in July
-                    contract.years += 1
                     if not player.years == 1:
                         raise ValueError(f"Player {player.name_last}, {player.name_first} invalid extension"
                                          f" years={player.years}")
@@ -164,7 +171,7 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
                     max(int(salaries_min.get(name_full, salary_min_league)), get_salary_min(contract.years)),
                     salary_max_league,
                 ) if not is_free else salary_min_league
-                if not is_free and player.salary == elc.salary and contract.years >= 5:
+                if (not is_free) and (player.salary == elc.salary) and (contract.years >= 5):
                     warnings.append(f"Player {name_full} salary={player.salary} == elc.salary={elc.salary}"
                                     f" and contract.years={contract.years}>=5; applying 20% post-ELC bonus")
                     salary_min = min(round_salary((1 + 0.1*(contract.years - 4))*salary_min), salary_max_league)
@@ -180,13 +187,15 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
                 if errmsgs:
                     raise ValueError(f"Player {name_full} {' and '.join(errmsgs)}")
                 msg = f"{'re-' if contract.team is None else ''}signing"
+                # Contract extensions only happen in offseason before rollover
+                # Need to add an extra year since all contracts will lose one in July
+                contract.years += not is_free
             player.salary = int(contract.salary)
             player.years = contract.years
             if is_free:
                 player.rights = contract.team.value
                 player.team = contract.team.value
                 player.acquired = "signed as a free agent"
-            players.set_player(pid, player)
             results.append(f"Player {name_full} ({player.rights.name}) {msg}:"
                            f" {contract.years}y {player.salary:d}")
             resignings[name_full] = player
@@ -240,8 +249,13 @@ def read_contracts(filename: str, entry_level: bool = False, encoding=encoding_d
                             team = teams.Team(int(data[1]))
                             data = data[0].rsplit(' ', 1)
                         years = parse_length(data[1])
-                        salary = get_salary_min(years)
-                        check_min = has_min
+                        try:
+                            data = data[0].rsplit(' ', 1)
+                            salary = parse_salary(data[1])
+                            check_min = False
+                        except RuntimeError:
+                            salary = get_salary_min(years)
+                            check_min = has_min
                     except RuntimeError:
                         salary = parse_salary(data[1])
                         data = data[0].rsplit(' ', 1)
@@ -290,7 +304,6 @@ def sign_qualifiers(players: plyr.Players, filename: str, encoding=encoding_defa
             player.years = 1
             player.salary = round_salary(1.2*player.salary)
             print(f"Signing {player} ({team.name}) qualifying offer at player.salary={player.salary}")
-            players.set_player(pid, player)
 
 
 def slide_contracts(players: plyr.Players, filename: str, filename_ineligible: str = None, year_draft_max=None,
@@ -321,7 +334,6 @@ def slide_contracts(players: plyr.Players, filename: str, filename_ineligible: s
             if errmsgs:
                 raise ValueError(f"Player {name_full} {' and '.join(errmsgs)}")
             player.years += 1
-            players.set_player(pid, player)
             results.append(f"Player {name_full} ({player.rights.name}) contract sliding to:"
                            f" {player.years}y {player.salary}")
             resignings[name_full] = player

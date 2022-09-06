@@ -59,6 +59,7 @@ if __name__ == '__main__':
                 file_contract,
                 entry_level=entry_level,
                 salaries_min=salaries_min if not entry_level else None,
+                extend=extend,
             )
             errors, warnings, results, resignings = cntr.enter_contracts(
                 players,
@@ -79,7 +80,8 @@ if __name__ == '__main__':
 
     if args.draft_year_last:
         for player in [players.get_player(pid) for pid in range(players.n_players)]:
-            if player.draft_year == args.draft_year_last and player.years == 0 and player.is_booster:
+            if player.is_booster and (player.years == 0) and not player.is_just_drafted(args.draft_year_last + 1) \
+                    and (player.age(datetime.fromisoformat(f'{args.draft_year_last + 1}-09-16')) < 20):
                 warnings_all.append(f'Pot booster {player} still unsigned')
 
     if warnings_all:

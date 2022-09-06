@@ -117,6 +117,9 @@ class Player:
     def is_booster(self) -> bool:
         return self.pot < 70 and self.con >= 75
 
+    def is_just_drafted(self, draft_year_current: int) -> bool:
+        return self.age(datetime.fromisoformat(f'{draft_year_current}-09-16')) < 19
+
     def is_junior(self, junior_date: datetime) -> bool:
         return self.birthdate > junior_date
 
