@@ -359,6 +359,12 @@ class Players:
             replaced.append((vopat, replacer))
         return replaced
 
+    def subtract(self, players: Players, columns=None):
+        if columns is None:
+            columns = ['sh', 'pl', 'st', 'ch', 'po', 'hi', 'sk', 'en', 'pe', 'fa',
+                       'le', 'str', 'pot', 'con', 'gre', 'fi']
+            self.table[columns] -= players.table[columns]
+
     def write(self, filename):
         if filename[-3:] == 'csv':
             self.write_csv(filename, index=False, encoding='cp1252')

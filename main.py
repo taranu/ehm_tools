@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--compare_players', default=None, type=str)
     parser.add_argument('--config_teams', default='C:/Games/EHM/config_teams.ehm', type=str)
     parser.add_argument('--date_format', default='%Y/%m/%d', type=str)
+    parser.add_argument('--difference', default=None, type=str)
     parser.add_argument('--draft_year_last', default=None, type=int)
     parser.add_argument('--elcs', default=None, type=str)
     parser.add_argument('--extensions', default=None, type=str)
@@ -149,6 +150,10 @@ if __name__ == '__main__':
                 if player_obj.birthdate < date_release:
                     print(f"Releasing rights to {player_obj}")
                     player_obj.rights = teams.Team.none
+
+    if args.difference is not None:
+        sub = plyr.Players(args.difference)
+        players.subtract(sub)
 
     if args.output is not None:
         print(f"Writing modified file to: {args.output}")
