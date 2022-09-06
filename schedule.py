@@ -51,7 +51,7 @@ class Game:
             raise AttributeError(item)
 
     def __repr__(self):
-        return f"Player({self.row})"
+        return f"Game({self.row})"
 
     def __setattr__(self, item, value):
         if item == 'row':
@@ -104,7 +104,7 @@ class Schedule:
         dates = pd.to_datetime(self.table[['year', 'month', 'day']])
         bad = np.where(~np.isfinite(dates))[0]
         if len(bad) > 0:
-            print(f'Warning; games {bad} have invalid birthdates: ')
+            print(f'Warning; games {bad} have invalid dates: ')
             print(self.table.iloc[bad])
         return dates
 
