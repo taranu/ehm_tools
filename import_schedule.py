@@ -22,7 +22,10 @@ if __name__ == '__main__':
     parser.add_argument('--config_teams', default='C:/Games/EHM/config_teams.ehm', type=str,
                         help='League config_teams.ehm file path')
     parser.add_argument('--date_begin', default=None, type=str)
-    parser.add_argument('--dates_unavail', default=f'{now.year}-12-24,{now.year}-12-24', type=str,
+    parser.add_argument('--dates_unavail',
+                        default=f'{now.year}-12-23,{now.year}-12-24,{now.year}-12-25,'
+                                f'{now.year}-12-31,{now.year+1}-01-01',
+                        type=str,
                         help='Comma-separated list of dates games should not be scheduled for (e.g. Dec. 25)')
     parser.add_argument('--format_date', default='%Y-%m-%d', type=str)
     parser.add_argument('--team_mapping', default=None, type=str)
@@ -69,8 +72,9 @@ if __name__ == '__main__':
         dates[dates >= date] += timedelta(days=1)
 
     counts = {i: 0 for i in range(7)}
-    for date in dates:
+    for idx, date in enumerate(dates):
         counts[date.weekday()] += 1
+        dates[idx] = date
     print(counts)
 
     schedule.dates = dates
