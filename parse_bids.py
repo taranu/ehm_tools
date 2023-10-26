@@ -39,16 +39,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process phpBB UFA bids")
     parser.add_argument('--bids', default='C:/Games/EHM/ufabids.txt', type=str)
     parser.add_argument('--config_teams', default='C:/Games/EHM/config_teams.ehm', type=str)
-    parser.add_argument('--rfas', default=None, type=str)
+    parser.add_argument('--rfas', default='C:/Games/EHM/rfa.txt', type=str)
     parser.add_argument('--time_format', default='%a %b %d, %Y %I:%M %p', type=str)
     args = parser.parse_args()
 
     teams.read_teams(args.config_teams)
-    rfas = ()
+    rfas = []
     if args.rfas:
         with open(args.rfas) as file:
             for line in file:
-                rfas.add(line.strip().split(' - ')[1])
+                rfas.append(line.strip().split(' - ')[1])
 
     now = datetime.now()
     print(now.strftime(args.time_format))
