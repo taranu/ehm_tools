@@ -1,2 +1,4 @@
 # IDEs
 .idea
+
+__pycache__
