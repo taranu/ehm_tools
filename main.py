@@ -110,7 +110,7 @@ if __name__ == '__main__':
                 print(f'{player} ({player.rights.name}, {player.con} CON)'
                       f' busted from {player_comp.pot} to {player.pot}')
             elif player_comp.draft_year == args.draft_year_last and player_comp.is_booster:
-                print(f'{player} ({player.rights.name}, {player.con} CON) failed to boost')
+                print(f'{player} ({player.rights.name}, {player.con} CON) failed to boost from {player.pot} POT')
 
     if args.invite_prospects or args.return_prospects:
         years_check = args.return_prospects
@@ -124,6 +124,8 @@ if __name__ == '__main__':
         cntr.sign_qualifiers(players, args.qualified_rfas)
 
     if args.return_juniors is not None:
+        if date_junior is None:
+            raise ValueError('junior_birthdate must be specified if return_juniors is set')
         with open(args.return_juniors, encoding='UTF-8') as f:
             index = tab.index
             for line in f:

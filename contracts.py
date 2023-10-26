@@ -146,6 +146,7 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
         try:
             pid = players.find_player_by_fullname(name_full)
             player = players.get_player(pid)
+            str_player = F"{name_full} ({player.rights.name})"
             if contract is not None:
                 salary, years = player.salary, player.years
                 player.salary, player.years = salary_unsigned, 0
@@ -159,8 +160,11 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
                 player.salary, player.years = salary, years
                 if is_free:
                     if not (years == 0):
-                        raise ValueError(f"Player {player.name_last}, {player.name_first} can't be signed as"
-                                         f" free agent with years={player.years} > 0")
+                        if (years == contract.years) and (salary == contract.salary):
+                            suffix = f"already signed as free agent with {years=} and {salary=}"
+                        else:
+                            suffix = f"can't be signed as free agent with years={player.years} > 0"
+                        raise ValueError(f"Player {player.name_last}, {player.name_first} {suffix}")
                     player.team = contract.team
                 else:
                     if not player.years == 1:
@@ -172,14 +176,14 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
                     salary_max_league,
                 ) if not is_free else salary_min_league
                 if (not is_free) and (player.salary == elc.salary) and (contract.years >= 5):
-                    warnings.append(f"Player {name_full} salary={player.salary} == elc.salary={elc.salary}"
+                    warnings.append(f"Player {str_player} salary={player.salary} == elc.salary={elc.salary}"
                                     f" and contract.years={contract.years}>=5; applying 20% post-ELC bonus")
                     salary_min = min(round_salary((1 + 0.1*(contract.years - 4))*salary_min), salary_max_league)
                 if salary_min is None:
                     raise KeyError(f"Player {name_full} has no defined minimum salary")
                 errmsgs = []
                 if not (contract.salary >= salary_min):
-                    errmsgs.append(f"Player {name_full} salary={contract.salary} !>= salary_min={salary_min}"
+                    errmsgs.append(f"Player {str_player} salary={contract.salary} !>= salary_min={salary_min}"
                                    f" for {contract.years}y")
                 elif (contract.team is None) and (contract.salary > salary_min):
                     warnings.append(f"Player {name_full} salary={contract.salary} > salary_min={salary_min}"
@@ -210,7 +214,7 @@ def enter_contracts(players: plyr.Players, contracts: Dict[str, Contract], salar
 def parse_length(string: str) -> int:
     string = string.lower()
     if string[-1] != 'y':
-        raise RuntimeError(f"Can't parse string={string} as contract length")
+        raise RuntimeError(f"Can't parse {string=} as contract length")
     return int(string[:-1])
 
 
@@ -293,11 +297,11 @@ def sign_qualifiers(players: plyr.Players, filename: str, encoding=encoding_defa
                 raise RuntimeError(f'Duplicate qualified RFA fonud: {name}')
             pid = players.find_player_by_fullname(name)
             player = players.get_player(pid)
-            if player.years != 0 or player.rights != Team.UFA:
+            if player.years != 0 or player.rights != teams.Team.UFA:
                 raise RuntimeError(f'Player {player} is not listed UFA and cannot sign qualifying offer')
             to_sign[team].append((pid, player))
     for name_team, players_team in to_sign.items():
-        team = Team[name_team]
+        team = teams.Team[name_team]
         for (pid, player) in players_team:
             player.rights = team
             player.team = team
@@ -340,7 +344,7 @@ def slide_contracts(players: plyr.Players, filename: str, filename_ineligible: s
         except NameError:
             errors.append(f"Couldn't find player: {name_full} ({plyr.get_names(name_full)})")
         except Exception as error:
-            errors.append(f"Player {name_full} got error: {error}")
+            errors.append(f"Player {name_full} ({player.rights.name}) got error: {error}")
 
     return errors, warnings, results, resignings
 
